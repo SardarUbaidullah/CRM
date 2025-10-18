@@ -46,4 +46,60 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+     public function ownedTeams()
+    {
+        return $this->hasMany(Team::class, 'owner_id');
+    }
+
+    // Projects via pivot project_user
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'project_user')
+                    ->withPivot('role')
+                    ->withTimestamps();
+    }
+
+    // Projects created (if you want)
+    public function createdProjects()
+    {
+        return $this->hasMany(Project::class, 'created_by');
+    }
+
+    // Tasks assigned to this user
+    public function assignedTasks()
+    {
+        return $this->hasMany(Task::class, 'assigned_to');
+    }
+
+    // Task comments
+    public function taskComments()
+    {
+        return $this->hasMany(TaskComment::class);
+    }
+
+    // Discussion created
+    public function discussions()
+    {
+        return $this->hasMany(Discussion::class, 'created_by');
+    }
+
+    // Discussion comments
+    public function discussionComments()
+    {
+        return $this->hasMany(DiscussionComment::class);
+    }
+
+    // Files uploaded by user
+    public function files()
+    {
+        return $this->hasMany(File::class);
+    }
+
+    // Time logs
+    public function timeLogs()
+    {
+        return $this->hasMany(TimeLog::class);
+    }
 }
+
