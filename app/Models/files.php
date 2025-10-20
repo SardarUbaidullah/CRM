@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class files extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'project_id',
@@ -21,12 +20,12 @@ class files extends Model
 
     public function project()
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Projects::class);
     }
 
     public function task()
     {
-        return $this->belongsTo(Task::class);
+        return $this->belongsTo(tasks::class);
     }
 
     public function user()

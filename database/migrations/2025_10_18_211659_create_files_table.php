@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('files', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->nullable()->constrained('projects')->onDelete('cascade');
-$table->foreignId('task_id')->nullable()->constrained('tasks')->onDelete('cascade');
-$table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-$table->string('file_name');
-$table->string('file_path');
-$table->integer('version')->default(1);
+            $table->foreignId('task_id')->nullable()->constrained('tasks')->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->string('file_name');
+            $table->string('file_path');
+            $table->integer('version')->default(1);
             $table->timestamps();
         });
     }

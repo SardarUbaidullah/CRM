@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create('milestones', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
-$table->string('title');
-$table->date('due_date')->nullable();
-$table->string('status')->default('pending');
+            $table->string('title');
+            $table->date('due_date')->nullable();
+            $table->string('status')->default('pending');
             $table->timestamps();
         });
     }
