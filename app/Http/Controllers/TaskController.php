@@ -11,7 +11,6 @@ class TaskController extends Controller
     // GET /api/tasks
     public function index()
     {
-        // eager load relations for convenience
         $tasks = tasks::with(['project','assignee','creator'])->get();
 
         return response()->json([
