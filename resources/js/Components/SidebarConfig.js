@@ -19,7 +19,8 @@ import {
     Search,
     Plus,
     Share2,
-    Lightbulb
+    Lightbulb,
+    Kanban // Add Kanban icon
 } from 'lucide-react';
 
 export const sidebarConfig = {
@@ -43,7 +44,7 @@ export const sidebarConfig = {
     manager: [
         { id: 'dashboard', name: 'Dashboard', icon: 'Home', href: '/dashboard' },
         { id: 'projects', name: 'Projects', icon: 'Folder', href: '/projects' },
-        { id: 'tasks', name: 'Tasks', icon: 'CheckSquare', href: '/tasks' },
+        { id: 'tasks', name: 'Task Board', icon: 'Kanban', href: '/tasks' }, // Changed to Kanban icon
         { id: 'team-members', name: 'Team Members', icon: 'Users', href: '/team-members' },
         { id: 'discussions', name: 'Discussions', icon: 'MessageSquare', href: '/discussions' },
         { id: 'files', name: 'Files', icon: 'File', href: '/files' },
@@ -89,5 +90,6 @@ export const iconMap = {
     Search,
     Plus,
     Share2,
-    Lightbulb
+    Lightbulb,
+    Kanban: CheckSquare // Use CheckSquare as Kanban icon for now
 };

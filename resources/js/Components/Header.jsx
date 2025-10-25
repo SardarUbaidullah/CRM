@@ -1,14 +1,46 @@
 // resources/js/Components/Layout/Header.jsx
 import React from 'react';
+import { useUser } from '../contexts/UserContext';
 import { Calendar, Bell, MessageSquare } from 'lucide-react';
 
-const Header = ({ user }) => {
+const Header = ({ user, query, setQuery, projects, activeProject, setActiveProject }) => {
+    const { userRole } = useUser();
+
     return (
         <header className="bg-white border-b border-border h-16 px-6 flex items-center justify-between">
+            {/* Left side - Search and Project Selector */}
+            <div className="flex items-center space-x-6">
+                {/* Project Selector */}
+                <div className="relative">
+                    <select
+                        value={activeProject}
+                        onChange={(e) => setActiveProject(e.target.value)}
+                        className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    >
+                        {projects.map((project) => (
+                            <option key={project} value={project}>
+                                {project}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <ChevronDown size={16} />
+                    </div>
+                </div>
 
-            {/* Left side - You can add logo or page title here if needed */}
-            <div className="flex items-center">
-                {/* Placeholder for left content if needed */}
+                {/* Search Bar */}
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary w-64"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search size={18} className="text-gray-400" />
+                    </div>
+                </div>
             </div>
 
             {/* Right side - Icons and Profile */}
@@ -44,7 +76,7 @@ const Header = ({ user }) => {
                             {user?.name || 'User Name'}
                         </p>
                         <p className="text-xs text-muted-foreground capitalize">
-                            {user?.role ? user.role.replace('_', ' ') : 'Team Member'}
+                            {userRole.replace('_', ' ')}
                         </p>
                     </div>
                 </div>
@@ -52,5 +84,43 @@ const Header = ({ user }) => {
         </header>
     );
 };
+
+// Add the missing Search icon import
+const Search = ({ size, className }) => (
+    <svg
+        width={size}
+        height={size}
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+    >
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+    </svg>
+);
+
+// Add the missing ChevronDown icon
+const ChevronDown = ({ size, className }) => (
+    <svg
+        width={size}
+        height={size}
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+    >
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+        />
+    </svg>
+);
 
 export default Header;

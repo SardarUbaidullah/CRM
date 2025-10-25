@@ -1,4 +1,4 @@
-// resources/js/Components/Kanban/KanbanBoard.jsx
+// resources/js/Components/Dashboard/KanbanBoard.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -29,7 +29,16 @@ import {
     Tag,
     User,
     AlertTriangle,
-    Info
+    Info,
+    BarChart,
+    PieChart,
+    TrendingUp,
+    Settings,
+    Mail,
+    Bell,
+    Shield,
+    Zap,
+    Crown
 } from 'lucide-react';
 
 const KanbanBoard = ({
@@ -39,7 +48,9 @@ const KanbanBoard = ({
     onAddTask,
     onShareProject,
     onInviteMember,
-    onDeleteTask
+    onDeleteTask,
+    user,
+    userRole
 }) => {
     const [draggedTask, setDraggedTask] = useState(null);
     const [selectedTask, setSelectedTask] = useState(null);
@@ -47,13 +58,15 @@ const KanbanBoard = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [filterPriority, setFilterPriority] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [filterAssignee, setFilterAssignee] = useState('all');
     const [viewMode, setViewMode] = useState('grid');
     const [newTaskColumn, setNewTaskColumn] = useState(null);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [toasts, setToasts] = useState([]);
+    const [activeTab, setActiveTab] = useState('board');
     const dropdownRef = useRef(null);
 
-    // Enhanced columns configuration
+    // Enhanced columns configuration for PM
     const columns = [
         {
             id: 1,
@@ -104,6 +117,35 @@ const KanbanBoard = ({
         { id: 'all', label: 'All Status' },
         ...columns.map(col => ({ id: col.key, label: col.title }))
     ];
+
+    // PM-specific stats
+    const projectStats = useMemo(() => {
+        const allTasks = Object.values(tasks).flat();
+        return {
+            totalTasks: allTasks.length,
+            completedTasks: tasks.done.length,
+            inProgressTasks: tasks.progress.length + tasks.review.length,
+            overdueTasks: allTasks.filter(task => {
+                if (!task.dueDate) return false;
+                return new Date(task.dueDate) < new Date() && task.status !== 4;
+            }).length,
+            completionRate: Math.round((tasks.done.length / allTasks.length) * 100) || 0,
+            teamProductivity: calculateTeamProductivity(),
+            budgetStatus: 'On Track',
+            riskLevel: 'Low'
+        };
+    }, [tasks]);
+
+    const calculateTeamProductivity = () => {
+        const completedThisWeek = tasks.done.filter(task => {
+            const completedDate = new Date(task.updatedAt);
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return completedDate > weekAgo;
+        }).length;
+
+        return Math.min(100, Math.round((completedThisWeek / tasks.done.length) * 100)) || 0;
+    };
 
     // Enhanced color system using custom theme
     const getColorClasses = (color, type = 'bg') => {
@@ -159,7 +201,7 @@ const KanbanBoard = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Enhanced task filtering
+    // Enhanced task filtering for PM
     const filteredTasks = (columnKey) => {
         return tasks[columnKey].filter(task => {
             const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -168,8 +210,10 @@ const KanbanBoard = ({
 
             const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
             const matchesStatus = filterStatus === 'all' || filterStatus === columnKey;
+            const matchesAssignee = filterAssignee === 'all' ||
+                (task.assignedMembers && task.assignedMembers.includes(parseInt(filterAssignee)));
 
-            return matchesSearch && matchesPriority && matchesStatus;
+            return matchesSearch && matchesPriority && matchesStatus && matchesAssignee;
         });
     };
 
@@ -181,7 +225,6 @@ const KanbanBoard = ({
     };
 
     const handleDragEnd = (e) => {
-        // Remove visual feedback
         e.target.style.opacity = '1';
         e.target.style.transform = 'scale(1)';
     };
@@ -230,7 +273,7 @@ const KanbanBoard = ({
         return progressMap[columnId] || 0;
     };
 
-    // Enhanced task creation
+    // Enhanced task creation for PM
     const handleAddTask = (columnId, taskData = {}) => {
         const newTask = {
             id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -248,7 +291,8 @@ const KanbanBoard = ({
             updatedAt: new Date().toISOString(),
             isStarred: false,
             tags: taskData.tags || [],
-            estimatedHours: taskData.estimatedHours || 4
+            estimatedHours: taskData.estimatedHours || 4,
+            createdBy: user?.id
         };
         onAddTask(newTask);
         showToast('New task created!', 'success');
@@ -260,12 +304,21 @@ const KanbanBoard = ({
     const QuickAddTask = ({ columnId, onClose, onSave }) => {
         const [title, setTitle] = useState('');
         const [priority, setPriority] = useState('medium');
+        const [assignee, setAssignee] = useState('');
+        const [dueDate, setDueDate] = useState('');
 
         const handleSubmit = (e) => {
             e.preventDefault();
             if (title.trim()) {
-                onSave(columnId, { title: title.trim(), priority });
+                onSave(columnId, {
+                    title: title.trim(),
+                    priority,
+                    assignedMembers: assignee ? [parseInt(assignee)] : [],
+                    dueDate: dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                });
                 setTitle('');
+                setAssignee('');
+                setDueDate('');
             }
         };
 
@@ -318,6 +371,28 @@ const KanbanBoard = ({
                                         <option key={p.id} value={p.id}>{p.label}</option>
                                     ))}
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2 text-gray-700">Assign To</label>
+                                <select
+                                    value={assignee}
+                                    onChange={(e) => setAssignee(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                                >
+                                    <option value="">Unassigned</option>
+                                    {teamMembers.map(member => (
+                                        <option key={member.id} value={member.id}>{member.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2 text-gray-700">Due Date</label>
+                                <input
+                                    type="date"
+                                    value={dueDate}
+                                    onChange={(e) => setDueDate(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                                />
                             </div>
                         </div>
                         <div className="flex justify-end space-x-3 mt-6">
@@ -423,16 +498,98 @@ const KanbanBoard = ({
         }, 3000);
     };
 
-    // Calculate project statistics
-    const projectStats = {
-        totalTasks: Object.values(tasks).flat().length,
-        completedTasks: tasks.done.length,
-        inProgressTasks: tasks.progress.length + tasks.review.length,
-        overdueTasks: Object.values(tasks).flat().filter(task => isOverdue(task.dueDate)).length,
-        completionRate: Math.round((tasks.done.length / Object.values(tasks).flat().length) * 100) || 0
-    };
+    // PM-specific components
+    const ProjectOverview = () => (
+        <div className="space-y-6">
+            {/* PM-specific Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Team Productivity</p>
+                            <p className="text-2xl font-bold text-gray-900">{projectStats.teamProductivity}%</p>
+                        </div>
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <TrendingUp size={20} className="text-green-500" />
+                        </div>
+                    </div>
+                </div>
 
-    // Enhanced Task Detail Modal
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Budget Status</p>
+                            <p className="text-2xl font-bold text-gray-900">{projectStats.budgetStatus}</p>
+                        </div>
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <BarChart size={20} className="text-blue-500" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Risk Level</p>
+                            <p className="text-2xl font-bold text-gray-900">{projectStats.riskLevel}</p>
+                        </div>
+                        <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <Shield size={20} className="text-yellow-500" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Team Members</p>
+                            <p className="text-2xl font-bold text-gray-900">{teamMembers.length}</p>
+                        </div>
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <Users size={20} className="text-purple-500" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Team Performance */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Performance</h3>
+                <div className="space-y-4">
+                    {teamMembers.map(member => {
+                        const memberTasks = Object.values(tasks).flat().filter(task =>
+                            task.assignedMembers?.includes(member.id)
+                        );
+                        const completedTasks = memberTasks.filter(task => task.status === 4).length;
+                        const completionRate = memberTasks.length > 0 ? Math.round((completedTasks / memberTasks.length) * 100) : 0;
+
+                        return (
+                            <div key={member.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                    <img
+                                        className="w-10 h-10 rounded-full"
+                                        src={member.avatar}
+                                        alt={member.name}
+                                    />
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">{member.name}</h4>
+                                        <p className="text-sm text-gray-600">{member.role}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {completedTasks}/{memberTasks.length} tasks
+                                    </p>
+                                    <p className="text-sm text-gray-600">{completionRate}% completion</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+
     const TaskDetailModal = ({ task, onClose, onUpdate }) => {
         const [editedTask, setEditedTask] = useState(task);
         const [activeTab, setActiveTab] = useState('details');
@@ -461,7 +618,7 @@ const KanbanBoard = ({
                         {
                             id: Date.now(),
                             type: 'comment',
-                            user: 'You',
+                            user: user?.name || 'Project Manager',
                             content: newComment,
                             timestamp: new Date().toISOString()
                         }
@@ -710,8 +867,8 @@ const KanbanBoard = ({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 100 }}
             className={`flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg font-medium ${toast.type === 'success' ? 'bg-green-500 text-white' :
-                    toast.type === 'error' ? 'bg-red-500 text-white' :
-                        'bg-blue-500 text-white'
+                toast.type === 'error' ? 'bg-red-500 text-white' :
+                    'bg-blue-500 text-white'
                 }`}
         >
             <span>{toast.message}</span>
@@ -736,21 +893,40 @@ const KanbanBoard = ({
                 </AnimatePresence>
             </div>
 
-            {/* Enhanced Board Header */}
+            {/* PM-specific Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 space-y-4 lg:space-y-0">
                 <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-2">
-                        <h1 className="text-3xl font-bold text-gray-900">Project Tasks</h1>
+                        <div className="flex items-center space-x-3">
+                            <Crown size={24} className="text-yellow-500" />
+                            <h1 className="text-3xl font-bold text-gray-900">Project Manager Dashboard</h1>
+                        </div>
                         <div className="flex items-center space-x-2 bg-white px-3 py-1 rounded-full border border-gray-200">
                             <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                            <span className="text-sm text-gray-600">Active</span>
+                            <span className="text-sm text-gray-600">Project Lead: {user?.name}</span>
                         </div>
                     </div>
-                    <p className="text-gray-600">Manage your team's tasks and track progress in real-time</p>
+                    <p className="text-gray-600">Manage your team's tasks, track progress, and monitor project health</p>
                 </div>
 
-                {/* Enhanced Controls */}
+                {/* PM-specific Controls */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                    {/* View Toggle */}
+                    <div className="flex border border-gray-300 rounded-lg bg-white overflow-hidden text-gray-700">
+                        <button
+                            onClick={() => setActiveTab('overview')}
+                            className={`px-4 py-2.5 transition-colors ${activeTab === 'overview' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+                        >
+                            Overview
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('board')}
+                            className={`px-4 py-2.5 transition-colors ${activeTab === 'board' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+                        >
+                            Board
+                        </button>
+                    </div>
+
                     {/* Search */}
                     <div className="relative">
                         <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -775,7 +951,7 @@ const KanbanBoard = ({
                         </button>
 
                         {activeDropdown === 'filter' && (
-                            <div className="absolute text-gray-900 top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                            <div className="absolute text-gray-900 top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                                 <div className="p-3 space-y-3">
                                     <div>
                                         <div className="text-xs font-medium text-gray-500 px-2 py-1">Priority</div>
@@ -818,275 +994,297 @@ const KanbanBoard = ({
                                             </button>
                                         ))}
                                     </div>
+
+                                    <div className="border-t border-gray-200 pt-3">
+                                        <div className="text-xs font-medium text-gray-500 px-2 py-1">Assignee</div>
+                                        <button
+                                            onClick={() => {
+                                                setFilterAssignee('all');
+                                                setActiveDropdown(null);
+                                            }}
+                                            className={`flex items-center space-x-2 w-full px-2 py-2 rounded text-sm transition-colors ${filterAssignee === 'all' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50'}`}
+                                        >
+                                            <span>All Team Members</span>
+                                        </button>
+                                        {teamMembers.map(member => (
+                                            <button
+                                                key={member.id}
+                                                onClick={() => {
+                                                    setFilterAssignee(member.id.toString());
+                                                    setActiveDropdown(null);
+                                                }}
+                                                className={`flex items-center space-x-2 w-full px-2 py-2 rounded text-sm transition-colors ${filterAssignee === member.id.toString() ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50'}`}
+                                            >
+                                                <img
+                                                    className="w-4 h-4 rounded-full"
+                                                    src={member.avatar}
+                                                    alt={member.name}
+                                                />
+                                                <span>{member.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
-
-                    {/* View Toggle */}
-                    <div className="flex border border-gray-300 rounded-lg bg-white overflow-hidden text-gray-700">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`px-4 py-2.5 transition-colors ${viewMode === 'grid' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
-                        >
-                            Grid
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`px-4 py-2.5 transition-colors ${viewMode === 'list' ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
-                        >
-                            List
-                        </button>
-                    </div>
                 </div>
             </div>
 
-            {/* Enhanced Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                            <p className="text-2xl font-bold text-gray-900">{projectStats.totalTasks}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <Target size={20} className="text-primary" />
-                        </div>
-                    </div>
-                </div>
+            {/* Project Overview Tab */}
+            {activeTab === 'overview' && <ProjectOverview />}
 
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">In Progress</p>
-                            <p className="text-2xl font-bold text-gray-900">{projectStats.inProgressTasks}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
-                            <BarChart3 size={20} className="text-accent" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Completed</p>
-                            <p className="text-2xl font-bold text-gray-900">{projectStats.completedTasks}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center">
-                            <CheckCircle size={20} className="text-secondary" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Overdue</p>
-                            <p className="text-2xl font-bold text-gray-900">{projectStats.overdueTasks}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                            <AlertCircle size={20} className="text-red-500" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Completion</p>
-                            <p className="text-2xl font-bold text-gray-900">{projectStats.completionRate}%</p>
-                        </div>
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                            <Users size={20} className="text-green-500" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Enhanced Kanban Columns */}
-            <div className={`grid gap-6 ${viewMode === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'}`}>
-                {columns.map((column) => (
-                    <motion.div
-                        key={column.id}
-                        layout
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 transition-all hover:shadow-md"
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, column.id)}
-                    >
-                        {/* Enhanced Column Header */}
-                        <div className="p-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center space-x-3">
-                                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${getColorClasses(column.color, 'bg')} ${getColorClasses(column.color, 'text')}`}>
-                                        <span className="text-sm">{column.icon}</span>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900">{column.title}</h3>
-                                        <p className="text-xs text-gray-500">
-                                            {filteredTasks(column.key).length} of {tasks[column.key].length} tasks
-                                        </p>
-                                    </div>
+            {/* Kanban Board Tab */}
+            {activeTab === 'board' && (
+                <>
+                    {/* Enhanced Stats Overview for PM */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Total Tasks</p>
+                                    <p className="text-2xl font-bold text-gray-900">{projectStats.totalTasks}</p>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                    <button
-                                        onClick={() => {
-                                            setNewTaskColumn(column.id);
-                                            setIsAddingTask(true);
-                                        }}
-                                        className="w-8 h-8 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-colors duration-200"
-                                        title="Add Task"
-                                    >
-                                        <Plus size={16} />
-                                    </button>
+                                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                                    <Target size={20} className="text-primary" />
                                 </div>
                             </div>
-                            <div className={`h-1 rounded-full ${getColorClasses(column.color, 'bg')}`} />
                         </div>
 
-                        {/* Task Cards */}
-                        <div className="p-4 space-y-3 min-h-[200px]">
-                            <AnimatePresence>
-                                {filteredTasks(column.key).map((task) => (
-                                    <motion.div
-                                        key={task.id}
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                        transition={{ duration: 0.2 }}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, task, column.id)}
-                                        onDragEnd={handleDragEnd}
-                                        onClick={() => setSelectedTask(task)}
-                                        className="group bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer transform hover:scale-[1.02] relative"
-                                    >
-                                        {/* Star Button */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleTaskStar(task, column.key);
-                                            }}
-                                            className={`absolute -top-2 -right-2 p-1.5 rounded-full bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity ${task.isStarred ? 'opacity-100 text-yellow-500' : 'text-gray-500 hover:text-yellow-500'}`}
-                                        >
-                                            <Star size={14} fill={task.isStarred ? 'currentColor' : 'none'} />
-                                        </button>
+                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">In Progress</p>
+                                    <p className="text-2xl font-bold text-gray-900">{projectStats.inProgressTasks}</p>
+                                </div>
+                                <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
+                                    <BarChart3 size={20} className="text-accent" />
+                                </div>
+                            </div>
+                        </div>
 
-                                        {/* Header with Priority and Due Date */}
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center space-x-2">
-                                                {getPriorityIcon(task.priority)}
-                                                <span className={`text-xs font-medium px-2 py-1 rounded ${getTagColorClasses(task.tag.color)}`}>
-                                                    {task.tag.text}
-                                                </span>
+                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Completed</p>
+                                    <p className="text-2xl font-bold text-gray-900">{projectStats.completedTasks}</p>
+                                </div>
+                                <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center">
+                                    <CheckCircle size={20} className="text-secondary" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Overdue</p>
+                                    <p className="text-2xl font-bold text-gray-900">{projectStats.overdueTasks}</p>
+                                </div>
+                                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                    <AlertCircle size={20} className="text-red-500" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Completion</p>
+                                    <p className="text-2xl font-bold text-gray-900">{projectStats.completionRate}%</p>
+                                </div>
+                                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <Users size={20} className="text-green-500" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Enhanced Kanban Columns */}
+                    <div className={`grid gap-6 ${viewMode === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'}`}>
+                        {columns.map((column) => (
+                            <motion.div
+                                key={column.id}
+                                layout
+                                className="bg-white rounded-xl shadow-sm border border-gray-200 transition-all hover:shadow-md"
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, column.id)}
+                            >
+                                {/* Enhanced Column Header */}
+                                <div className="p-4 border-b border-gray-200">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${getColorClasses(column.color, 'bg')} ${getColorClasses(column.color, 'text')}`}>
+                                                <span className="text-sm">{column.icon}</span>
                                             </div>
-                                            {task.dueDate && (
-                                                <div className={`flex items-center space-x-1 text-xs ${isOverdue(task.dueDate)
-                                                    ? 'text-red-500 bg-red-50 px-2 py-1 rounded'
-                                                    : 'text-gray-500'
-                                                    }`}>
-                                                    <Calendar size={12} />
-                                                    <span>{formatDate(task.dueDate)}</span>
-                                                </div>
-                                            )}
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900">{column.title}</h3>
+                                                <p className="text-xs text-gray-500">
+                                                    {filteredTasks(column.key).length} of {tasks[column.key].length} tasks
+                                                </p>
+                                            </div>
                                         </div>
+                                        <div className="flex items-center space-x-1">
+                                            <button
+                                                onClick={() => {
+                                                    setNewTaskColumn(column.id);
+                                                    setIsAddingTask(true);
+                                                }}
+                                                className="w-8 h-8 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-colors duration-200"
+                                                title="Add Task"
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className={`h-1 rounded-full ${getColorClasses(column.color, 'bg')}`} />
+                                </div>
 
-                                        {/* Title & Description */}
-                                        <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{task.title}</h4>
-                                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{task.description}</p>
+                                {/* Task Cards */}
+                                <div className="p-4 space-y-3 min-h-[200px]">
+                                    <AnimatePresence>
+                                        {filteredTasks(column.key).map((task) => (
+                                            <motion.div
+                                                key={task.id}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.9 }}
+                                                transition={{ duration: 0.2 }}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, task, column.id)}
+                                                onDragEnd={handleDragEnd}
+                                                onClick={() => setSelectedTask(task)}
+                                                className="group bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer transform hover:scale-[1.02] relative"
+                                            >
+                                                {/* Star Button */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleTaskStar(task, column.key);
+                                                    }}
+                                                    className={`absolute -top-2 -right-2 p-1.5 rounded-full bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity ${task.isStarred ? 'opacity-100 text-yellow-500' : 'text-gray-500 hover:text-yellow-500'}`}
+                                                >
+                                                    <Star size={14} fill={task.isStarred ? 'currentColor' : 'none'} />
+                                                </button>
 
-                                        {/* Progress bar */}
-                                        {task.progress !== undefined && task.progress > 0 && (
-                                            <div className="mb-4">
-                                                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                                    <span>Progress</span>
-                                                    <span>{task.progress}%</span>
-                                                </div>
-                                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className={`h-2 rounded-full transition-all duration-500 ${getColorClasses(
-                                                            task.progress < 30 ? 'error' :
-                                                                task.progress < 70 ? 'accent' :
-                                                                    task.progress < 100 ? 'primary' : 'secondary', 'bg'
-                                                        )}`}
-                                                        style={{ width: `${task.progress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Footer */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center space-x-2">
-                                                <div className="flex -space-x-2">
-                                                    {task.assignedMembers && task.assignedMembers.slice(0, 3).map((memberId) => {
-                                                        const member = teamMembers.find(m => m.id === memberId);
-                                                        return member ? (
-                                                            <img
-                                                                key={member.id}
-                                                                className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                                                                src={member.avatar}
-                                                                alt={member.name}
-                                                                title={member.name}
-                                                            />
-                                                        ) : null;
-                                                    })}
-                                                    {task.assignedMembers && task.assignedMembers.length > 3 && (
-                                                        <div className="w-6 h-6 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-xs text-gray-600 shadow-sm">
-                                                            +{task.assignedMembers.length - 3}
+                                                {/* Header with Priority and Due Date */}
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div className="flex items-center space-x-2">
+                                                        {getPriorityIcon(task.priority)}
+                                                        <span className={`text-xs font-medium px-2 py-1 rounded ${getTagColorClasses(task.tag.color)}`}>
+                                                            {task.tag.text}
+                                                        </span>
+                                                    </div>
+                                                    {task.dueDate && (
+                                                        <div className={`flex items-center space-x-1 text-xs ${isOverdue(task.dueDate)
+                                                            ? 'text-red-500 bg-red-50 px-2 py-1 rounded'
+                                                            : 'text-gray-500'
+                                                            }`}>
+                                                            <Calendar size={12} />
+                                                            <span>{formatDate(task.dueDate)}</span>
                                                         </div>
                                                     )}
-                                                    {(!task.assignedMembers || task.assignedMembers.length === 0) && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedTask(task);
-                                                            }}
-                                                            className="w-6 h-6 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
-                                                            title="Assign members"
-                                                        >
-                                                            <UserPlus size={12} />
-                                                        </button>
-                                                    )}
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center space-x-3 text-gray-500 text-sm">
-                                                {task.comments > 0 && (
-                                                    <span className="flex items-center space-x-1">
-                                                        <MessageSquare size={14} />
-                                                        <span className="text-xs">{task.comments}</span>
-                                                    </span>
-                                                )}
-                                                {task.files > 0 && (
-                                                    <span className="flex items-center space-x-1">
-                                                        <Paperclip size={14} />
-                                                        <span className="text-xs">{task.files}</span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
 
-                            {/* Empty state */}
-                            {filteredTasks(column.key).length === 0 && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500 hover:border-primary/50 transition-colors"
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDrop(e, column.id)}
-                                >
-                                    <Plus size={24} className="mx-auto mb-2 text-gray-400" />
-                                    <p className="text-sm">No tasks found</p>
-                                    <p className="text-xs mt-1">Drag tasks here or click + to add</p>
-                                </motion.div>
-                            )}
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                                                {/* Title & Description */}
+                                                <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{task.title}</h4>
+                                                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{task.description}</p>
+
+                                                {/* Progress bar */}
+                                                {task.progress !== undefined && task.progress > 0 && (
+                                                    <div className="mb-4">
+                                                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                                            <span>Progress</span>
+                                                            <span>{task.progress}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                                            <div
+                                                                className={`h-2 rounded-full transition-all duration-500 ${getColorClasses(
+                                                                    task.progress < 30 ? 'error' :
+                                                                        task.progress < 70 ? 'accent' :
+                                                                            task.progress < 100 ? 'primary' : 'secondary', 'bg'
+                                                                )}`}
+                                                                style={{ width: `${task.progress}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Footer */}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="flex -space-x-2">
+                                                            {task.assignedMembers && task.assignedMembers.slice(0, 3).map((memberId) => {
+                                                                const member = teamMembers.find(m => m.id === memberId);
+                                                                return member ? (
+                                                                    <img
+                                                                        key={member.id}
+                                                                        className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                                                                        src={member.avatar}
+                                                                        alt={member.name}
+                                                                        title={member.name}
+                                                                    />
+                                                                ) : null;
+                                                            })}
+                                                            {task.assignedMembers && task.assignedMembers.length > 3 && (
+                                                                <div className="w-6 h-6 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-xs text-gray-600 shadow-sm">
+                                                                    +{task.assignedMembers.length - 3}
+                                                                </div>
+                                                            )}
+                                                            {(!task.assignedMembers || task.assignedMembers.length === 0) && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedTask(task);
+                                                                    }}
+                                                                    className="w-6 h-6 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                                                                    title="Assign members"
+                                                                >
+                                                                    <UserPlus size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center space-x-3 text-gray-500 text-sm">
+                                                        {task.comments > 0 && (
+                                                            <span className="flex items-center space-x-1">
+                                                                <MessageSquare size={14} />
+                                                                <span className="text-xs">{task.comments}</span>
+                                                            </span>
+                                                        )}
+                                                        {task.files > 0 && (
+                                                            <span className="flex items-center space-x-1">
+                                                                <Paperclip size={14} />
+                                                                <span className="text-xs">{task.files}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+
+                                    {/* Empty state */}
+                                    {filteredTasks(column.key).length === 0 && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500 hover:border-primary/50 transition-colors"
+                                            onDragOver={handleDragOver}
+                                            onDrop={(e) => handleDrop(e, column.id)}
+                                        >
+                                            <Plus size={24} className="mx-auto mb-2 text-gray-400" />
+                                            <p className="text-sm">No tasks found</p>
+                                            <p className="text-xs mt-1">Drag tasks here or click + to add</p>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </>
+            )}
 
             {/* Task Detail Modal */}
             <AnimatePresence>
@@ -1116,7 +1314,7 @@ const KanbanBoard = ({
                 )}
             </AnimatePresence>
 
-            {/* Enhanced Quick Actions FAB */}
+            {/* Enhanced Quick Actions FAB for PM */}
             <div className="fixed bottom-6 right-6 flex flex-col space-y-3">
                 <button
                     onClick={handleInviteMember}
@@ -1136,6 +1334,16 @@ const KanbanBoard = ({
                     <Share2 size={20} />
                     <span className="absolute right-full mr-3 bg-gray-900 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                         Share Project
+                    </span>
+                </button>
+                <button
+                    onClick={() => setActiveTab(activeTab === 'overview' ? 'board' : 'overview')}
+                    className="bg-accent text-white p-4 rounded-full shadow-lg hover:bg-accent/90 transition-all duration-200 flex items-center justify-center group"
+                    title="Toggle View"
+                >
+                    <BarChart size={20} />
+                    <span className="absolute right-full mr-3 bg-gray-900 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {activeTab === 'overview' ? 'Show Board' : 'Show Overview'}
                     </span>
                 </button>
             </div>

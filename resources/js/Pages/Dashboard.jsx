@@ -1,19 +1,14 @@
+// resources/js/Pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
+import { UserProvider, useUser } from '../contexts/UserContext'; // Import both here
 import Sidebar from '../Components/Sidebar';
-import Header from '@/Components/Header';
-import KanbanBoard from '@/Components/KanbanBoard';
+import Header from '../Components/Header';
+import DashboardRouter from '../Components/DashboardRouter';
 
-const Dashboard = () => {
-    const { props } = usePage();
-    const userFromServer = props?.auth?.user ?? null;
-    const user = userFromServer || {
-        id: 99,
-        name: 'Anima Agrawal',
-        email: 'anima@example.com',
-        role: 'super_admin',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face'
-    };
+// Move all your state and handlers here
+const DashboardContent = () => {
+    const { user: contextUser, userRole } = useUser(); // This should work now
 
     const [activeNav, setActiveNav] = useState('dashboard');
     const [activeProject, setActiveProject] = useState('Mobile App');
@@ -35,6 +30,7 @@ const Dashboard = () => {
                 progress: 0,
                 status: 1,
                 createdAt: '2024-01-25',
+                updatedAt: '2024-01-25',
                 isStarred: false
             },
             {
@@ -50,6 +46,7 @@ const Dashboard = () => {
                 progress: 0,
                 status: 1,
                 createdAt: '2024-01-26',
+                updatedAt: '2024-01-26',
                 isStarred: true
             },
             {
@@ -65,6 +62,7 @@ const Dashboard = () => {
                 progress: 0,
                 status: 1,
                 createdAt: '2024-01-27',
+                updatedAt: '2024-01-27',
                 isStarred: false
             }
         ],
@@ -82,6 +80,7 @@ const Dashboard = () => {
                 progress: 60,
                 status: 2,
                 createdAt: '2024-01-20',
+                updatedAt: '2024-01-28',
                 isStarred: true,
                 hasImage: true
             },
@@ -98,6 +97,7 @@ const Dashboard = () => {
                 progress: 45,
                 status: 2,
                 createdAt: '2024-01-22',
+                updatedAt: '2024-01-28',
                 isStarred: false
             }
         ],
@@ -115,6 +115,7 @@ const Dashboard = () => {
                 progress: 80,
                 status: 3,
                 createdAt: '2024-01-18',
+                updatedAt: '2024-01-28',
                 isStarred: false
             }
         ],
@@ -132,6 +133,7 @@ const Dashboard = () => {
                 progress: 100,
                 status: 4,
                 createdAt: '2024-01-15',
+                updatedAt: '2024-01-25',
                 isStarred: true
             },
             {
@@ -147,6 +149,7 @@ const Dashboard = () => {
                 progress: 100,
                 status: 4,
                 createdAt: '2024-01-10',
+                updatedAt: '2024-01-20',
                 isStarred: false
             }
         ]
@@ -158,6 +161,33 @@ const Dashboard = () => {
         { id: 3, name: 'Mike Rodriguez', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&crop=face', role: 'Backend Developer' },
         { id: 4, name: 'Priya Patel', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop&crop=face', role: 'Frontend Developer' },
         { id: 5, name: 'David Wilson', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face', role: 'DevOps Engineer' }
+    ]);
+
+    const [projects] = useState([
+        {
+            id: 1,
+            name: 'Mobile App',
+            status: 'in_progress',
+            description: 'New mobile application development',
+            clients: [99],
+            progress: 65
+        },
+        {
+            id: 2,
+            name: 'Website Redesign',
+            status: 'planning',
+            description: 'Complete website redesign project',
+            clients: [99],
+            progress: 20
+        },
+        {
+            id: 3,
+            name: 'Marketing Campaign',
+            status: 'completed',
+            description: 'Q1 marketing campaign',
+            clients: [99],
+            progress: 100
+        }
     ]);
 
     useEffect(() => {
@@ -191,31 +221,10 @@ const Dashboard = () => {
 
             return newTasks;
         });
-
-        // In a real app, you would call your API here:
-        // axios.patch(`/api/tasks/${updatedTask.id}`, updatedTask)
-        //     .then(response => console.log('Task updated:', response.data))
-        //     .catch(error => console.error('Error updating task:', error));
     };
 
     // Enhanced add task handler
-    const handleAddTask = (columnId) => {
-        const newTask = {
-            id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            title: 'New Task',
-            description: 'Describe your task here...',
-            tag: getColumnTag(columnId),
-            priority: 'medium',
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            comments: 0,
-            files: 0,
-            assignedMembers: [],
-            progress: getColumnProgress(columnId),
-            status: columnId,
-            createdAt: new Date().toISOString(),
-            isStarred: false
-        };
-
+    const handleAddTask = (newTask) => {
         setTasks(prevTasks => {
             const columnMap = {
                 1: 'todo',
@@ -224,17 +233,12 @@ const Dashboard = () => {
                 4: 'done'
             };
 
-            const targetColumn = columnMap[columnId] || 'todo';
+            const targetColumn = columnMap[newTask.status] || 'todo';
             return {
                 ...prevTasks,
                 [targetColumn]: [newTask, ...prevTasks[targetColumn]]
             };
         });
-
-        // API call for creating task
-        // axios.post('/api/tasks', newTask)
-        //     .then(response => console.log('Task created:', response.data))
-        //     .catch(error => console.error('Error creating task:', error));
     };
 
     // Enhanced delete task handler
@@ -243,32 +247,6 @@ const Dashboard = () => {
             ...prevTasks,
             [columnKey]: prevTasks[columnKey].filter(task => task.id !== taskId)
         }));
-
-        // API call for deleting task
-        // axios.delete(`/api/tasks/${taskId}`)
-        //     .then(response => console.log('Task deleted:', response.data))
-        //     .catch(error => console.error('Error deleting task:', error));
-    };
-
-    // Helper functions
-    const getColumnTag = (columnId) => {
-        const tagMap = {
-            1: { text: 'To Do', color: 'primary' },
-            2: { text: 'In Progress', color: 'accent' },
-            3: { text: 'Review', color: 'warning' },
-            4: { text: 'Completed', color: 'secondary' }
-        };
-        return tagMap[columnId] || { text: 'To Do', color: 'primary' };
-    };
-
-    const getColumnProgress = (columnId) => {
-        const progressMap = {
-            1: 0,
-            2: 30,
-            3: 80,
-            4: 100
-        };
-        return progressMap[columnId] || 0;
     };
 
     // Project sharing handler
@@ -277,7 +255,6 @@ const Dashboard = () => {
         navigator.clipboard.writeText(projectUrl).then(() => {
             alert('Project link copied to clipboard!');
         }).catch(() => {
-            // Fallback for browsers that don't support clipboard API
             const textArea = document.createElement('textarea');
             textArea.value = projectUrl;
             document.body.appendChild(textArea);
@@ -292,21 +269,13 @@ const Dashboard = () => {
     const handleInviteMember = () => {
         const email = prompt('Enter email address to invite to the project:');
         if (email && email.includes('@')) {
-            // API call to invite member
-            // axios.post('/api/projects/invite', { email, project: activeProject })
-            //     .then(response => {
-            //         alert(`Invitation sent to ${email}`);
-            //     })
-            //     .catch(error => {
-            //         alert('Failed to send invitation');
-            //     });
             alert(`Invitation sent to ${email}`);
         } else if (email) {
             alert('Please enter a valid email address');
         }
     };
 
-    // Filter tasks based on search query
+    // Filter tasks based on search query for all roles
     const filteredTasks = {
         todo: tasks.todo.filter(task =>
             task.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -327,7 +296,7 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 font-inter text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+        <div className="min-h-screen bg-gray-50 font-inter text-gray-900">
             <Head title="Project Management — Dashboard" />
 
             <div className="flex h-screen">
@@ -336,12 +305,12 @@ const Dashboard = () => {
                     setActiveNav={setActiveNav}
                     activeProject={activeProject}
                     setActiveProject={setActiveProject}
-                    user={user}
+                    user={contextUser}
                 />
 
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <Header
-                        user={user}
+                        user={contextUser}
                         query={query}
                         setQuery={setQuery}
                         projects={['Mobile App', 'Marketing', 'Website', 'E-commerce']}
@@ -350,7 +319,9 @@ const Dashboard = () => {
                     />
 
                     <main className="flex-1 overflow-auto">
-                        <KanbanBoard
+                        <DashboardRouter
+                            user={contextUser}
+                            projects={projects}
                             tasks={filteredTasks}
                             teamMembers={teamMembers}
                             onTaskUpdate={handleTaskUpdate}
@@ -358,11 +329,23 @@ const Dashboard = () => {
                             onDeleteTask={handleDeleteTask}
                             onShareProject={handleShareProject}
                             onInviteMember={handleInviteMember}
+                            activeNav={activeNav}
                         />
                     </main>
                 </div>
             </div>
         </div>
+    );
+};
+
+// Wrap with UserProvider
+const Dashboard = () => {
+  
+
+    return (
+        <UserProvider >
+            <DashboardContent />
+        </UserProvider>
     );
 };
 
