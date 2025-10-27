@@ -17,7 +17,7 @@ const Sidebar = ({
     user
 }) => {
     const { url } = usePage();
-    const { userRole } = useUser() || { userRole: 'team_member' }; // ✅ fallback to avoid undefined
+    const { userRole } = useUser() || { userRole: 'team_member' };
 
     const navigationItems = sidebarConfig[userRole] || sidebarConfig.team_member;
 

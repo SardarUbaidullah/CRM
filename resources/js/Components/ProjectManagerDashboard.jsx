@@ -1,5 +1,5 @@
 // resources/js/Components/Dashboard/KanbanBoard.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect,useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     MessageSquare,
@@ -118,6 +118,17 @@ const KanbanBoard = ({
         ...columns.map(col => ({ id: col.key, label: col.title }))
     ];
 
+        const calculateTeamProductivity = () => {
+        const completedThisWeek = tasks.done.filter(task => {
+            const completedDate = new Date(task.updatedAt);
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return completedDate > weekAgo;
+        }).length;
+
+        return Math.min(100, Math.round((completedThisWeek / tasks.done.length) * 100)) || 0;
+    };
+
     // PM-specific stats
     const projectStats = useMemo(() => {
         const allTasks = Object.values(tasks).flat();
@@ -136,16 +147,7 @@ const KanbanBoard = ({
         };
     }, [tasks]);
 
-    const calculateTeamProductivity = () => {
-        const completedThisWeek = tasks.done.filter(task => {
-            const completedDate = new Date(task.updatedAt);
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return completedDate > weekAgo;
-        }).length;
 
-        return Math.min(100, Math.round((completedThisWeek / tasks.done.length) * 100)) || 0;
-    };
 
     // Enhanced color system using custom theme
     const getColorClasses = (color, type = 'bg') => {
