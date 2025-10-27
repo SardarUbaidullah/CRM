@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Head, router } from "@inertiajs/react";
 import ContainerLayout from "@/Layouts/ContainerLayout";
 import { ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// CN utility function for conditional classes
-const cn = (...classes) => classes.filter(Boolean).join(' ');
 
 const Home = () => {
     const [isVisible, setIsVisible] = useState(false);
