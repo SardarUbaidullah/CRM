@@ -5,7 +5,11 @@ const UserContext = createContext();
 
 export const UserProvider = ({ children, initialUser = null }) => {
     const [user, setUser] = useState(initialUser);
+<<<<<<< HEAD
     const [userRole, setUserRole] = useState(initialUser?.role || "manager");
+=======
+    const [userRole, setUserRole] = useState(initialUser?.role || 'manager');
+>>>>>>> 21672d14f255e5f109d81a25046b359c33c6b80e
 
     // Update role when user changes
     useEffect(() => {

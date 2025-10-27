@@ -1,5 +1,9 @@
 // resources/js/Components/Dashboard/KanbanBoard.jsx
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect,useMemo } from 'react';
+=======
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+>>>>>>> 21672d14f255e5f109d81a25046b359c33c6b80e
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     MessageSquare,
@@ -117,7 +121,15 @@ const KanbanBoard = ({
         { id: 'all', label: 'All Status' },
         ...columns.map(col => ({ id: col.key, label: col.title }))
     ];
+const calculateTeamProductivity = () => {
+        const completedThisWeek = tasks.done.filter(task => {
+            const completedDate = new Date(task.updatedAt);
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return completedDate > weekAgo;
+        }).length;
 
+<<<<<<< HEAD
         const calculateTeamProductivity = () => {
         const completedThisWeek = tasks.done.filter(task => {
             const completedDate = new Date(task.updatedAt);
@@ -129,8 +141,13 @@ const KanbanBoard = ({
         return Math.min(100, Math.round((completedThisWeek / tasks.done.length) * 100)) || 0;
     };
 
+=======
+        return Math.min(100, Math.round((completedThisWeek / tasks.done.length) * 100)) || 0;
+    };
+>>>>>>> 21672d14f255e5f109d81a25046b359c33c6b80e
     // PM-specific stats
     const projectStats = useMemo(() => {
+
         const allTasks = Object.values(tasks).flat();
         return {
             totalTasks: allTasks.length,
