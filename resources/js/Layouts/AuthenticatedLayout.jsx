@@ -31,6 +31,7 @@ export default function AuthenticatedLayout({ header, children }) {
   return (
     <div className="min-h-screen bg-muted/20">
       {/* Top Navbar */}
+
       <nav className="border-b bg-background">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Left Section */}
@@ -99,7 +100,7 @@ export default function AuthenticatedLayout({ header, children }) {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-64 sm:hidden">
+              <SheetContent className="w-64 sm:hidden">
                 <SheetHeader>
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
